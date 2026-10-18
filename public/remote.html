@@ -1,0 +1,293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0a0c14">
+<title>Channel Changer Remote</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Mono:wght@400;600&family=Instrument+Sans:wght@400;600;700&display=swap">
+<style>
+/* Layout: one-thumb TV remote. On-air banner, the big dial, then your vote and the room's tally.
+   Dark only: it is used in a dark theatre. Fonts fall back cleanly when the venue has no internet. */
+:root{
+  --bg:#0a0c14; --panel:#131726; --line:#262b41; --fg:#eceef6; --dim:#8f95ae; --accent:#f3c64b; --live:#ff4d5e;
+  --c1:#c9c9c9; --c2:#e9dd45; --c3:#3fd3dc; --c4:#47cc68; --c5:#d553cf; --c6:#e9474f; --c7:#5577f2;
+  --display:'Bungee',Impact,'Arial Black',sans-serif;
+  --body:'Instrument Sans',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--fg)}
+body{font-family:var(--body);font-size:16px;line-height:1.4;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px calc(env(safe-area-inset-bottom,0px) + 20px);max-width:480px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;gap:14px;-webkit-user-select:none;user-select:none}
+.onair{display:flex;align-items:center;gap:12px;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 14px}
+.live{flex:none;font-size:11px;font-weight:700;letter-spacing:.14em;background:var(--live);color:#fff;padding:3px 8px;border-radius:4px;display:inline-flex;align-items:center;gap:6px}
+.live::before{content:"";width:7px;height:7px;border-radius:50%;background:#fff}
+.onair .ch{font-family:var(--display);font-size:26px;line-height:1;color:var(--cur,var(--c1))}
+.onair .nm{font-weight:700;font-size:15px;line-height:1.2;overflow-wrap:anywhere}
+.onair .mt{margin-left:auto;text-align:right;font-family:var(--mono);font-size:12px;color:var(--dim);flex:none}
+.conn{font-size:13px;color:var(--accent);text-align:center;margin:-4px 0}
+
+.dialwrap{position:relative;width:100%;max-width:340px;margin:0 auto;aspect-ratio:1/1}
+#dial{width:100%;height:100%;display:block;touch-action:none;cursor:grab;outline:none}
+#dial:focus-visible .ring{stroke:var(--accent);stroke-width:8}
+#dial .pad{transition:opacity .2s}
+#dial .padc{fill:#151929;stroke:var(--pc);stroke-width:3}
+#dial .pad.sel .padc{fill:var(--pc)}
+#dial .padt{font-family:var(--display);font-size:20px;fill:var(--pc);text-anchor:middle;dominant-baseline:central;pointer-events:none}
+#dial .pad.sel .padt{fill:#0a0c14}
+#dial .pad.onair .padc{stroke-dasharray:4 3}
+#dial .tick{stroke:var(--line);stroke-width:2}
+#dial .body{fill:url(#knobg);stroke:#2c3352;stroke-width:2}
+#dial .grip{fill:none;stroke:#2c3352;stroke-width:6;stroke-dasharray:2 7}
+#dial .ring{fill:none;stroke:var(--kc,var(--line));stroke-width:5;transition:stroke .2s}
+#dial .ptr{transition:transform .14s ease-out}
+#dial .ptrl{stroke:var(--fg);stroke-width:7;stroke-linecap:round}
+.dialhint{text-align:center;color:var(--dim);font-size:13px;margin:-6px 0 0}
+
+.mine{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px}
+.mine .lbl{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:700}
+.mine .big{font-family:var(--display);font-size:22px;line-height:1.15;color:var(--kc,var(--fg));overflow-wrap:anywhere}
+.mine .sub{color:var(--dim);font-size:14px}
+.mine.stale .big{opacity:.55}
+
+.room{display:flex;flex-direction:column;gap:8px}
+.room h2{margin:0;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:700}
+.bars{position:relative;display:grid;grid-template-columns:repeat(7,1fr);gap:5px;height:84px}
+.bar{position:relative;background:rgba(255,255,255,.04);border-radius:4px;overflow:hidden}
+.bar i{position:absolute;left:0;right:0;bottom:0;background:var(--c);opacity:.8;transition:height .3s}
+.bar.cur i{opacity:.35}
+.bar.mine{outline:2px solid var(--fg);outline-offset:1px}
+.thr{position:absolute;left:-2px;right:-2px;border-top:2px dashed var(--accent);pointer-events:none}
+.nums{display:grid;grid-template-columns:repeat(7,1fr);gap:5px;text-align:center;font-family:var(--mono);font-size:12px;color:var(--dim)}
+.nums b{display:block;font-family:var(--display);font-weight:400;font-size:15px;color:var(--c)}
+.status{font-size:14px;text-align:center;text-wrap:balance}
+.status b{color:var(--accent)}
+.foot{margin-top:auto;text-align:center;color:var(--dim);font-size:12px;font-family:var(--mono)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+  <div class="onair" id="onair">
+    <span class="live">ON AIR</span>
+    <span class="ch" id="ch">CH –</span>
+    <span class="nm" id="nm">Connecting…</span>
+    <span class="mt" id="mt"></span>
+  </div>
+  <div class="conn" id="conn" hidden>Reconnecting to the show…</div>
+
+  <div class="dialwrap">
+    <svg id="dial" viewBox="0 0 320 320" role="slider" aria-label="Channel dial" aria-valuemin="1" aria-valuemax="7" aria-valuenow="0" tabindex="0">
+      <defs>
+        <radialGradient id="knobg" cx="40%" cy="35%" r="70%"><stop offset="0" stop-color="#323a5e"/><stop offset="1" stop-color="#121524"/></radialGradient>
+      </defs>
+      <g id="ticks"></g>
+      <g id="pads"></g>
+      <circle class="ring" cx="160" cy="160" r="88"/>
+      <circle class="body" cx="160" cy="160" r="80"/>
+      <circle class="grip" cx="160" cy="160" r="70"/>
+      <g class="ptr" id="ptr" style="transform-origin:160px 160px"><line class="ptrl" x1="160" y1="148" x2="160" y2="96"/></g>
+    </svg>
+  </div>
+  <p class="dialhint">Turn the dial or tap a number</p>
+
+  <div class="mine" id="mine">
+    <span class="lbl">Your vote</span>
+    <span class="big" id="mineBig">Turn the dial to vote</span>
+    <span class="sub" id="mineSub">Until you do, you count as happy with what's on.</span>
+  </div>
+
+  <div class="room">
+    <h2 id="roomH">The room</h2>
+    <div class="bars" id="bars"><div class="thr" id="thr"></div></div>
+    <div class="nums" id="nums"></div>
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="foot" id="foot">Channel Changer</div>
+
+<script>
+(function(){
+'use strict';
+if(location.protocol === 'file:'){ document.getElementById('nm').textContent = 'Open this by scanning the QR code on the big screen.'; return; }
+var $ = function(id){ return document.getElementById(id); };
+var col = function(c){ return 'var(--c' + c + ')'; };
+
+/* one id per phone, kept across reloads */
+var id = null;
+try { id = localStorage.getItem('cc-voter-id'); } catch(e){}
+if(!id || !/^[a-z0-9]{8,40}$/.test(id)){
+  id = '';
+  for(var i=0;i<20;i++) id += 'abcdefghijklmnopqrstuvwxyz0123456789'[Math.random()*36|0];
+  try { localStorage.setItem('cc-voter-id', id); } catch(e){}
+}
+
+var S = null;               // latest show state
+var myPos = 0, myActive = false, myLabel = '';
+var lastLocal = 0;          // when this phone last turned its own dial
+
+/* ---------- dial ---------- */
+var CX = 160, CY = 160;
+function angleOf(k){ return -135 + (k-1) * 45; }
+function pt(a, r){ var rad = a * Math.PI / 180; return [CX + r * Math.sin(rad), CY - r * Math.cos(rad)]; }
+(function build(){
+  var pads = '', ticks = '';
+  for(var k=1;k<=7;k++){
+    var p = pt(angleOf(k), 132), t1 = pt(angleOf(k), 96), t2 = pt(angleOf(k), 106);
+    ticks += '<line class="tick" x1="'+t1[0]+'" y1="'+t1[1]+'" x2="'+t2[0]+'" y2="'+t2[1]+'"/>';
+    pads += '<g class="pad" id="pad'+k+'" style="--pc:'+col(k)+'"><circle class="padc" cx="'+p[0]+'" cy="'+p[1]+'" r="22"/><text class="padt" x="'+p[0]+'" y="'+p[1]+'">'+k+'</text></g>';
+  }
+  $('ticks').innerHTML = ticks; $('pads').innerHTML = pads;
+  var bars = '', nums = '';
+  for(k=1;k<=7;k++){
+    bars += '<div class="bar" id="bar'+k+'" style="--c:'+col(k)+'"><i></i></div>';
+    nums += '<div style="--c:'+col(k)+'"><b>'+k+'</b><span id="num'+k+'">0%</span></div>';
+  }
+  $('bars').insertAdjacentHTML('afterbegin', bars); $('nums').innerHTML = nums;
+})();
+
+function posFromPoint(e){
+  var svg = $('dial'), r = svg.getBoundingClientRect();
+  var x = (e.clientX - r.left) / r.width * 320 - CX, y = (e.clientY - r.top) / r.height * 320 - CY;
+  if(Math.sqrt(x*x + y*y) < 30) return 0;
+  var a = Math.atan2(x, -y) * 180 / Math.PI;     // 0 at top, clockwise
+  if(a > 160 || a < -160) return 0;               // the gap at the bottom
+  return Math.max(1, Math.min(7, Math.round((a + 135) / 45) + 1));
+}
+var dragging = false;
+$('dial').addEventListener('pointerdown', function(e){
+  dragging = true; try { $('dial').setPointerCapture(e.pointerId); } catch(err){}
+  var p = posFromPoint(e); if(p) choose(p, true);
+});
+$('dial').addEventListener('pointermove', function(e){ if(!dragging) return; var p = posFromPoint(e); if(p && p !== myPos) choose(p, false); });
+['pointerup','pointercancel'].forEach(function(n){ $('dial').addEventListener(n, function(){ dragging = false; }); });
+$('dial').addEventListener('keydown', function(e){
+  if(e.key === 'ArrowRight' || e.key === 'ArrowUp'){ e.preventDefault(); choose(Math.min(7, (myPos || 0) + 1), true); }
+  if(e.key === 'ArrowLeft' || e.key === 'ArrowDown'){ e.preventDefault(); choose(Math.max(1, (myPos || 2) - 1), true); }
+});
+
+function choose(p, deliberate){
+  var changed = p !== myPos;
+  if(!changed && !deliberate) return;
+  myPos = p; myActive = true; lastLocal = Date.now();
+  if(changed && navigator.vibrate){ try { navigator.vibrate(12); } catch(e){} }
+  queueVote(p);
+  render();
+}
+
+/* ---------- sending ---------- */
+var pending = 0, inflight = false;
+function queueVote(p){ pending = p; if(!inflight) flush(); }
+function flush(){
+  if(!pending) return;
+  var p = pending; pending = 0; inflight = true;
+  fetch('/api/vote', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({id:id, pos:p})})
+    .then(function(r){ return r.json(); })
+    .then(function(j){ if(j && j.me) myLabel = j.me.label; })
+    .catch(function(){ if(!pending) pending = p; setTimeout(flush, 1500); })
+    .then(function(){ inflight = false; if(pending) flush(); });
+}
+
+/* ---------- live state ---------- */
+var es = null, polling = false, gotStream = false, pollFails = 0;
+function onState(data){
+  S = data;
+  $('conn').hidden = true;
+  if(S.me){
+    myLabel = S.me.label;
+    if(Date.now() - lastLocal > 1500 && !pending && !inflight){ myPos = S.me.pos; myActive = S.me.active; }
+    else if(S.me.pos === myPos) myActive = S.me.active || myActive;
+  }
+  render();
+}
+function connect(){
+  if(!window.EventSource){ startPolling(); return; }
+  es = new EventSource('/events/phone?id=' + id);
+  es.onmessage = function(ev){ var d; try { d = JSON.parse(ev.data); } catch(e){ return; } gotStream = true; onState(d); };
+  es.onerror = function(){ if(gotStream) $('conn').hidden = false; };
+  // Some connections (e.g. Cloudflare quick tunnels) never deliver a live stream: poll instead.
+  setTimeout(function(){ if(!gotStream) startPolling(); }, 4000);
+}
+function startPolling(){
+  if(polling) return;
+  polling = true;
+  if(es){ try { es.close(); } catch(e){} es = null; }
+  (function poll(){
+    fetch('/api/state?id=' + id, {cache:'no-store'})
+      .then(function(r){ if(!r.ok) throw new Error(r.status); return r.json(); })
+      .then(function(d){ pollFails = 0; onState(d); })
+      .catch(function(){ if(++pollFails > 2) $('conn').hidden = false; })
+      .then(function(){ setTimeout(poll, document.visibilityState === 'hidden' ? 3000 : 600); });
+  })();
+}
+connect();
+document.addEventListener('visibilitychange', function(){
+  if(!polling && document.visibilityState === 'visible' && es && es.readyState === 2){ connect(); }
+});
+
+/* ---------- render ---------- */
+function fmt(s){ s = Math.ceil(s); return Math.floor(s/60) + ':' + ('0' + s%60).slice(-2); }
+function render(){
+  var cur = S ? S.current : 0;
+  var names = S ? S.names : [];
+  document.documentElement.style.setProperty('--cur', col(cur || 1));
+  if(S){
+    $('ch').textContent = 'CH ' + cur;
+    $('nm').textContent = names[cur-1];
+    $('mt').textContent = S.mode === 'cool' ? 'locked ' + fmt(S.cdLeft) : '';
+  }
+
+  // dial
+  for(var k=1;k<=7;k++){
+    var pad = $('pad'+k);
+    pad.classList.toggle('sel', k === myPos);
+    pad.classList.toggle('onair', k === cur);
+  }
+  $('ptr').style.transform = 'rotate(' + (myPos ? angleOf(myPos) : -135) + 'deg)';
+  $('ptr').style.opacity = myPos ? 1 : .35;
+  $('dial').style.setProperty('--kc', myPos ? col(myPos) : 'var(--line)');
+  $('dial').setAttribute('aria-valuenow', myPos);
+  $('dial').setAttribute('aria-valuetext', myPos ? 'Channel ' + myPos + ' ' + (names[myPos-1] || '') : 'No vote yet');
+
+  // your vote
+  var mine = $('mine'), big = $('mineBig'), sub = $('mineSub');
+  var stale = S && S.stale === 'stay' && myPos && !myActive && myPos !== S.current;
+  mine.classList.toggle('stale', !!stale);
+  mine.style.setProperty('--kc', myPos ? col(myPos) : 'var(--fg)');
+  if(!S){ big.textContent = 'Connecting…'; sub.textContent = 'Make sure you are on the venue Wi-Fi.'; }
+  else if(!myPos){ big.textContent = 'Turn the dial to vote'; sub.textContent = "Until you do, you count as happy with what's on."; }
+  else if(myPos === cur){ big.textContent = 'Keep watching CH ' + cur; sub.textContent = "You're voting to stay on this channel."; }
+  else if(stale){ big.textContent = 'CH ' + myPos + ' ' + names[myPos-1]; sub.textContent = 'The channel changed since you voted, so this counts as staying put. Tap a number to vote again.'; }
+  else {
+    var n = S.counts[myPos], pct = S.connected ? Math.round(n / S.connected * 100) : 0;
+    big.textContent = 'CH ' + myPos + ' ' + names[myPos-1];
+    sub.textContent = n + ' of ' + S.connected + ' want this (' + pct + '%). It needs more than ' + S.threshold + '%.';
+  }
+
+  if(!S) return;
+  // room
+  $('roomH').textContent = 'The room · ' + S.connected + ' voting';
+  for(k=1;k<=7;k++){
+    var p = S.connected ? S.counts[k] / S.connected * 100 : 0;
+    var b = $('bar'+k);
+    b.firstChild.style.height = p + '%';
+    b.classList.toggle('cur', k === cur);
+    b.classList.toggle('mine', k === myPos && !stale && k !== cur);
+    $('num'+k).textContent = Math.round(p) + '%';
+  }
+  $('thr').style.bottom = S.threshold + '%';
+  var L = S.leader ? 'CH ' + S.leader + ' ' + names[S.leader-1] : '';
+  var st = $('status');
+  if(S.mode === 'frozen') st.innerHTML = 'Voting is paused by the host.';
+  else if(S.mode === 'cool') st.innerHTML = 'Channel locked for <b>' + fmt(S.cdLeft) + '</b>. Votes still count when it unlocks.';
+  else if(S.mode === 'hold') st.innerHTML = '<b>' + esc(L) + '</b> has the majority. Switching in ' + Math.max(0, S.hold * (1 - S.holdP)).toFixed(1) + ' s…';
+  else st.innerHTML = 'Voting open. A channel needs more than <b>' + S.threshold + '%</b> to take over.';
+  $('foot').textContent = (myLabel ? 'Remote ' + myLabel + ' · ' : '') + 'Channel Changer';
+}
+function esc(s){ return String(s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); }
+render();
+})();
+</script>
+</body>
+</html>

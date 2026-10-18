@@ -1,0 +1,15 @@
+# Render Blueprint: lets Render set up Channel Changer for you.
+# In Render choose New > Blueprint and pick the GitHub repository that holds these files.
+services:
+  - type: web
+    name: channel-changer
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server.js
+    healthCheckPath: /api/ping
+    envVars:
+      - key: HOST_PASSWORD
+        sync: false        # Render asks you to type it in
+      - key: CHANNEL_NAMES
+        value: Rolling News,Cooking Show,Soap Opera,Wildlife Doc,Home Shopping,Kids' TV,Live Sport

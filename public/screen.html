@@ -1,0 +1,570 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Channel Changer</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bungee&family=IBM+Plex+Mono:wght@400;600&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: a broadcast gallery. The on-air screen sits on top (it is what the projector shows),
+   with the "scan to grab a remote" card in its corner; the director's desk sits underneath.
+   Dark only: this page lives on a projector in a dark theatre. */
+:root{
+  --bg:#0a0c14; --panel:#121522; --panel-2:#181c2c; --line:#262b41;
+  --fg:#eceef6; --dim:#8a90aa; --accent:#f3c64b; --live:#ff4d5e;
+  --c1:#c9c9c9; --c2:#e9dd45; --c3:#3fd3dc; --c4:#47cc68; --c5:#d553cf; --c6:#e9474f; --c7:#5577f2;
+  --display:'Bungee',Impact,'Arial Black',sans-serif;
+  --body:'Instrument Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--fg)}
+body{font-family:var(--body);font-size:15px;line-height:1.5;padding:16px 16px 48px;max-width:1320px;margin:0 auto}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+h1,h2{margin:0;text-wrap:balance}
+
+.top{display:flex;flex-wrap:wrap;align-items:center;gap:12px 20px;margin-bottom:16px}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand h1{font-family:var(--display);font-weight:400;font-size:22px}
+.bars-mini{display:flex;height:22px;border-radius:3px;overflow:hidden}
+.bars-mini i{width:5px;display:block}
+.conn{font-size:13px;color:var(--accent)}
+.btn{text-decoration:none;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:7px 12px;cursor:pointer;font-weight:600;font-size:14px;display:inline-flex;align-items:center;gap:6px}
+.btn:hover{border-color:var(--dim)}
+.btn.primary{background:var(--accent);color:#1b1606;border-color:var(--accent)}
+.btn.on{border-color:var(--accent);color:var(--accent)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.top-actions{display:flex;flex-wrap:wrap;gap:8px}
+kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;color:var(--fg)}
+
+.screen{position:relative;background:radial-gradient(120% 90% at 30% 0%,#171b2e 0%,#0d0f1a 70%);border:1px solid var(--line);border-radius:14px;padding:24px;display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:28px;overflow:hidden}
+.onair{display:flex;flex-direction:column;gap:10px;min-width:0}
+.live{display:inline-flex;align-items:center;gap:8px;align-self:flex-start;background:var(--live);color:#fff;font-weight:700;font-size:12px;letter-spacing:.14em;padding:4px 10px 4px 8px;border-radius:4px}
+.live::before{content:"";width:8px;height:8px;border-radius:50%;background:#fff;animation:blink 1.4s steps(2,start) infinite}
+@keyframes blink{to{visibility:hidden}}
+.chnum{font-family:var(--display);font-size:clamp(72px,10vw,148px);line-height:.9;color:var(--cur);margin-top:6px}
+.chname{font-family:var(--display);font-size:clamp(22px,3vw,40px);line-height:1.1;overflow-wrap:anywhere}
+.since{color:var(--dim);font-family:var(--mono)}
+.status{border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:6px;margin-top:auto}
+.status-main{font-size:clamp(16px,1.8vw,22px);font-weight:600;text-wrap:balance}
+.status-sub{color:var(--dim);font-size:14px}
+.pill{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid currentColor;margin-right:6px;vertical-align:2px}
+.pill.open{color:var(--c4)} .pill.hold{color:var(--accent)} .pill.cool{color:var(--c3)} .pill.frozen{color:var(--live)}
+
+.join{display:flex;gap:14px;align-items:center;background:rgba(255,255,255,.04);border:1px solid var(--line);border-radius:12px;padding:12px}
+.join .qr{flex:none;width:118px;height:118px;border-radius:8px;overflow:hidden;background:#fff}
+.join .qr svg{display:block;width:100%;height:100%}
+.join b{display:block;font-family:var(--display);font-weight:400;font-size:18px;line-height:1.15}
+.join span{display:block;color:var(--dim);font-size:13px}
+.join code{display:block;font-family:var(--mono);font-size:13px;color:var(--fg);margin-top:4px;overflow-wrap:anywhere}
+
+.board{display:flex;flex-direction:column;gap:8px;min-width:0}
+.tracks{position:relative;display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px;height:clamp(200px,38vh,380px)}
+.track{position:relative;background:rgba(255,255,255,.035);border-radius:6px;overflow:hidden}
+.fill{position:absolute;left:0;right:0;bottom:0;height:0;background:var(--c);opacity:.85;transition:height .35s ease}
+.track.onair-col .fill{opacity:.35}
+.track.leader .fill{opacity:1;box-shadow:0 0 24px var(--c)}
+.track .pct{position:absolute;left:0;right:0;top:8px;text-align:center;font-family:var(--mono);font-weight:600;font-size:clamp(12px,1.4vw,18px)}
+.track .tag{position:absolute;left:50%;bottom:8px;transform:translateX(-50%);font-size:10px;font-weight:700;letter-spacing:.12em;background:var(--live);color:#fff;padding:1px 6px;border-radius:3px;white-space:nowrap}
+.thr{position:absolute;left:-4px;right:-4px;border-top:2px dashed var(--accent);pointer-events:none;transition:bottom .3s}
+.thr span{position:absolute;right:4px;top:-20px;font-size:11px;font-weight:700;letter-spacing:.1em;color:var(--accent);background:var(--bg);padding:0 4px;border-radius:3px}
+.labels{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.lab{text-align:center;min-width:0}
+.lab b{display:block;font-family:var(--display);font-weight:400;font-size:clamp(16px,2vw,26px);color:var(--c)}
+.lab small{display:block;color:var(--dim);font-size:12px;line-height:1.25;overflow-wrap:anywhere}
+.lab .cnt{font-family:var(--mono);font-size:12px}
+.holdbar{height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden;margin-top:4px}
+.holdbar i{display:block;height:100%;width:0;background:var(--c)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 18px;color:var(--dim);font-size:13px}
+.meta b{color:var(--fg);font-weight:600}
+
+#static{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;z-index:3}
+.ident{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:4;pointer-events:none;opacity:0}
+.ident b{font-family:var(--display);font-weight:400;font-size:clamp(60px,12vw,180px);color:var(--cur);text-shadow:0 0 40px rgba(0,0,0,.8)}
+.ident span{font-family:var(--display);font-size:clamp(18px,3vw,36px);text-shadow:0 0 20px rgba(0,0,0,.9)}
+.ident.show{animation:ident 1.6s ease forwards}
+@keyframes ident{0%{opacity:0}25%{opacity:1}75%{opacity:1}100%{opacity:0}}
+
+.desk{display:grid;grid-template-columns:minmax(0,7fr) minmax(0,5fr);gap:16px;margin-top:16px}
+.stack{display:flex;flex-direction:column;gap:16px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.panel h2{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);font-weight:700}
+.panel-head{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px}
+.hint{color:var(--dim);font-size:13px;margin:0}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.row select,.form select,.form input[type=number],.sel{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:6px 8px}
+
+.room{display:grid;grid-template-columns:repeat(auto-fill,minmax(52px,1fr));gap:10px 6px}
+.v{display:flex;flex-direction:column;align-items:center;gap:3px}
+.dial{position:relative;width:40px;height:40px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#2b3150,#151929 70%);border:3px solid var(--kc)}
+.dial::after{content:"";position:absolute;left:50%;top:4px;width:3px;height:12px;margin-left:-1.5px;border-radius:2px;background:var(--fg);transform-origin:50% 13px;transform:rotate(var(--rot));transition:transform .18s}
+.v small{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.v.stale .dial{opacity:.4}
+.v.none .dial::after{display:none}
+.v.gone .dial{border-style:dashed;border-color:var(--line);opacity:.5}
+.v.gone .dial::after{display:none}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--dim)}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:12px;height:12px;border-radius:50%;display:inline-block;border:2px solid var(--fg)}
+.sw.dim{opacity:.4} .sw.dash{border-style:dashed;border-color:var(--dim)}
+.empty{color:var(--dim);font-size:13px}
+
+.cuts{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.cut{background:var(--panel-2);border:1px solid var(--line);border-bottom:4px solid var(--c);border-radius:7px;padding:8px 0;cursor:pointer;font-family:var(--display);font-size:18px;color:var(--c)}
+.cut.cur{background:var(--c);color:#0b0c12}
+
+.form{display:grid;grid-template-columns:1fr auto;gap:10px 12px;align-items:center}
+.form label{font-size:14px}
+.form label small{display:block;color:var(--dim);font-size:12px}
+.form input[type=number]{width:84px;text-align:right;font-family:var(--mono)}
+.form select{max-width:190px}
+.names{display:grid;gap:6px}
+.names label{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:8px}
+.names b{font-family:var(--display);font-weight:400;color:var(--c);font-size:16px}
+.names input{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:6px 8px;min-width:0}
+.log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;font-size:13px}
+.log li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:6px}
+.log .t{font-family:var(--mono);color:var(--dim)}
+.log .why{color:var(--dim);font-size:12px}
+.url{font-family:var(--mono);font-size:13px;overflow-wrap:anywhere;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:6px 8px}
+.msg{font-size:13px;color:var(--accent);margin:0}
+
+.filewarn{background:#2a1f05;border:1px solid var(--accent);color:var(--fg);border-radius:12px;padding:16px 18px;margin-bottom:16px;display:flex;flex-direction:column;gap:6px}
+.filewarn b{color:var(--accent);font-size:16px}
+.filewarn code{font-family:var(--mono);background:rgba(255,255,255,.08);padding:1px 6px;border-radius:4px}
+body.proj{max-width:none;padding:0;height:100vh;overflow:hidden}
+body.proj .top,body.proj .desk{display:none}
+body.proj .screen{border-radius:0;border:0;height:100%;padding:4vh 4vw}
+body.proj .board{height:100%}
+body.proj .tracks{height:auto;flex:1;min-height:0}
+body.proj .join .qr{width:min(19vh,200px);height:min(19vh,200px)}
+body.proj .join b{font-size:clamp(18px,2.2vw,30px)}
+body.proj .join code{font-size:clamp(13px,1.3vw,18px)}
+.exitproj{display:none;position:fixed;right:12px;top:12px;z-index:9;opacity:.12}
+.exitproj:hover{opacity:1}
+body.proj .exitproj{display:inline-flex}
+
+@media (max-width:900px){ .screen{grid-template-columns:1fr;padding:18px} .desk{grid-template-columns:1fr} }
+@media (prefers-reduced-motion:reduce){ *{transition:none!important} .live::before{animation:none} }
+</style>
+</head>
+<body>
+<button class="btn exitproj" id="exitProj" type="button">Exit projector view</button>
+
+<div class="filewarn" id="fileWarn" hidden>
+  <b>This page has to be opened through the vote server.</b>
+  <span>The QR code and live votes come from the server, so opening <code>screen.html</code> directly won't work.</span>
+  <span>Close this tab and double-click <code>start.bat</code> (Windows) or <code>start.command</code> (Mac) in the channel-changer folder. The screen then opens by itself at <code>http://localhost:3000/screen</code>.</span>
+</div>
+<header class="top">
+  <div class="brand">
+    <div class="bars-mini" aria-hidden="true"><i style="background:var(--c1)"></i><i style="background:var(--c2)"></i><i style="background:var(--c3)"></i><i style="background:var(--c4)"></i><i style="background:var(--c5)"></i><i style="background:var(--c6)"></i><i style="background:var(--c7)"></i></div>
+    <h1>Channel Changer</h1>
+  </div>
+  <span class="conn" id="conn" hidden>Lost contact with the vote server. Is it still running?</span>
+  <div class="top-actions">
+    <button class="btn" id="soundBtn" type="button">Sound off</button>
+    <button class="btn" id="hwBtn" type="button">Connect knob hub</button>
+    <button class="btn primary" id="projBtn" type="button">Projector view <kbd>P</kbd></button>
+    <a class="btn" id="signOut" href="/logout" hidden>Sign out</a>
+  </div>
+</header>
+
+<section class="screen" id="screen" aria-label="On-air screen">
+  <div class="onair">
+    <span class="live">ON AIR</span>
+    <div class="chnum" id="chNum">CH –</div>
+    <div class="chname" id="chName">Waiting for the server…</div>
+    <div class="since" id="since"></div>
+    <div class="status">
+      <div class="status-main" id="statusMain"></div>
+      <div class="status-sub" id="statusSub"></div>
+    </div>
+    <div class="join" id="join">
+      <div class="qr" id="qr"></div>
+      <div><b>Scan to grab a remote</b><span id="joinHow">Join the venue Wi-Fi first, then open:</span><code id="joinUrl"></code></div>
+    </div>
+  </div>
+  <div class="board">
+    <div class="tracks" id="tracks"><div class="thr" id="thr"><span id="thrLabel">MAJORITY</span></div></div>
+    <div class="labels" id="labels"></div>
+    <div class="meta" id="meta"></div>
+  </div>
+  <canvas id="static" aria-hidden="true"></canvas>
+  <div class="ident" id="ident" aria-hidden="true"><b id="identNum"></b><span id="identName"></span></div>
+</section>
+
+<section class="desk">
+  <div class="stack">
+    <div class="panel">
+      <div class="panel-head">
+        <h2 id="roomTitle">The room</h2>
+        <div class="legend">
+          <span><i class="sw"></i>Fresh vote</span>
+          <span><i class="sw dim"></i>Not turned since last change</span>
+          <span><i class="sw dash"></i>Left / unplugged</span>
+        </div>
+      </div>
+      <p class="hint">P = phone, K = knob box, T = test voter. Phones that have joined but not turned their dial count as staying put.</p>
+      <div class="room" id="room"></div>
+    </div>
+    <div class="panel">
+      <h2>Rehearsal: test voters</h2>
+      <p class="hint">Fake audience members that live on the server and vote like phones. Use them to rehearse without a crowd, then clear them before doors open.</p>
+      <div class="row">
+        <button class="btn" type="button" data-bots="10">Add 10</button>
+        <button class="btn" type="button" data-bots="25">Add 25</button>
+        <button class="btn" type="button" id="clearBots">Clear test voters</button>
+      </div>
+      <div class="row">
+        <label for="swingCh" class="hint">Swing them to</label>
+        <select id="swingCh"></select>
+        <button class="btn" id="swingBtn" type="button">Swing</button>
+        <button class="btn" id="restlessBtn" type="button">Restless crowd: off</button>
+        <button class="btn" id="scatterBtn" type="button">Scatter</button>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><h2>Change log</h2><button class="btn" id="clearLog" type="button">Clear</button></div>
+      <ul class="log" id="log"></ul>
+    </div>
+  </div>
+  <div class="stack">
+    <div class="panel">
+      <h2>Host controls</h2>
+      <p class="hint">Cut straight to a channel with the buttons or keys <kbd>1</kbd>–<kbd>7</kbd>. This overrides the vote and starts a new cooldown.</p>
+      <div class="cuts" id="cuts"></div>
+      <div class="row">
+        <button class="btn" id="freezeBtn" type="button">Freeze voting <kbd>F</kbd></button>
+        <button class="btn" id="cdBtn" type="button">End cooldown <kbd>C</kbd></button>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Audience join link</h2>
+      <div class="url" id="deskUrl"></div>
+      <div class="row">
+        <label for="joinSel" class="hint">Network</label>
+        <select id="joinSel" class="sel"></select>
+        <button class="btn" id="qrBtn" type="button">QR on screen: on <kbd>Q</kbd></button>
+      </div>
+      <p class="hint">On Wi-Fi, phones and this laptop must be on the same network. If the link doesn't open on a phone, pick the other network address here.</p>
+      <label for="customUrl" class="hint">Online address (from Cloudflare Tunnel). Paste it here and the QR code switches to it.</label>
+      <div class="row">
+        <input type="url" id="customUrl" class="sel" style="flex:1;min-width:0" placeholder="https://something.trycloudflare.com" autocomplete="off">
+        <button class="btn" id="customUse" type="button">Use</button>
+        <button class="btn" id="customClear" type="button">Back to Wi-Fi</button>
+      </div>
+      <p class="msg" id="hwMsg" hidden></p>
+    </div>
+    <div class="panel">
+      <h2>Rules</h2>
+      <div class="form">
+        <label for="rThr">Majority needed (%)<small>More than this share of everyone voting</small></label>
+        <input type="number" id="rThr" min="50" max="90" step="5">
+        <label for="rHold">Hold time (s)<small>The majority must last this long</small></label>
+        <input type="number" id="rHold" min="0" max="15" step="0.5">
+        <label for="rCool">Cooldown (s)<small>Minimum airtime after every change</small></label>
+        <input type="number" id="rCool" min="0" max="600" step="5">
+        <label for="rStale">Votes from before the last change<small>Dials nobody has turned since</small></label>
+        <select id="rStale"><option value="stay">Count as “stay”</option><option value="keep">Keep counting where they point</option></select>
+        <label for="rDrop">Drop silent phones after (s)<small>A phone that closes the page or loses Wi-Fi stops counting</small></label>
+        <input type="number" id="rDrop" min="15" max="900" step="15">
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Channel line-up</h2>
+      <div class="names" id="names"></div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+'use strict';
+if(/^https?:$/.test(location.protocol) && !/^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/.test(location.host)) document.getElementById('signOut').hidden = false;
+if(location.protocol === 'file:'){ document.getElementById('fileWarn').hidden = false; document.getElementById('chName').textContent = 'Not connected'; return; }
+var $ = function(id){ return document.getElementById(id); };
+var col = function(c){ return 'var(--c' + c + ')'; };
+var esc = function(s){ return String(s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); };
+var fmt = function(s){ s = Math.ceil(s); return Math.floor(s/60) + ':' + ('0' + s%60).slice(-2); };
+var S = null, lastEpoch = null;
+
+function host(body){
+  return fetch('/api/host', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)})
+    .then(function(r){ return r.json(); }).catch(function(){});
+}
+
+/* ---------- static parts ---------- */
+(function build(){
+  var tracks = $('tracks'), labels = $('labels'), cuts = $('cuts'), names = $('names');
+  for(var c=1;c<=7;c++){
+    var tr = document.createElement('div');
+    tr.className = 'track'; tr.id = 'tr' + c; tr.style.setProperty('--c', col(c));
+    tr.innerHTML = '<div class="fill"></div><div class="pct">0%</div>';
+    tracks.insertBefore(tr, $('thr'));
+    var lb = document.createElement('div');
+    lb.className = 'lab'; lb.style.setProperty('--c', col(c));
+    lb.innerHTML = '<b>' + c + '</b><small id="ln' + c + '"></small><span class="cnt" id="lc' + c + '"></span><div class="holdbar"><i id="hb' + c + '"></i></div>';
+    labels.appendChild(lb);
+    var b = document.createElement('button');
+    b.type = 'button'; b.className = 'cut'; b.id = 'cut' + c; b.style.setProperty('--c', col(c)); b.textContent = c;
+    b.addEventListener('click', (function(ch){ return function(){ host({action:'cut', ch:ch}); }; })(c));
+    cuts.appendChild(b);
+    var l = document.createElement('label'); l.style.setProperty('--c', col(c));
+    l.innerHTML = '<b>' + c + '</b><input type="text" id="nm' + c + '" maxlength="28" aria-label="Name of channel ' + c + '">';
+    names.appendChild(l);
+  }
+})();
+
+/* ---------- live connection ---------- */
+function connect(){
+  var es = new EventSource('/events/screen');
+  es.onmessage = function(ev){
+    try { S = JSON.parse(ev.data); } catch(e){ return; }
+    $('conn').hidden = true;
+    if(lastEpoch !== null && S.epoch !== lastEpoch) burst();
+    lastEpoch = S.epoch;
+    render();
+  };
+  es.onerror = function(){ $('conn').hidden = false; };
+}
+connect();
+// Some free hosts go to sleep after 15 minutes without requests; this keeps the server awake while the screen is open.
+setInterval(function(){ fetch('/api/ping', {cache:'no-store'}).catch(function(){}); }, 4 * 60 * 1000);
+
+/* ---------- render ---------- */
+var pill = function(k, t){ return '<span class="pill ' + k + '">' + t + '</span>'; };
+function render(){
+  var c, cur = S.current, N = S.names;
+  document.documentElement.style.setProperty('--cur', col(cur));
+  $('chNum').textContent = 'CH ' + cur;
+  $('chName').textContent = N[cur-1];
+  $('since').textContent = 'On air for ' + fmt(S.onAirFor);
+
+  for(c=1;c<=7;c++){
+    var tr = $('tr' + c), p = S.connected ? S.counts[c] / S.connected * 100 : 0;
+    tr.firstChild.style.height = p + '%';
+    tr.children[1].textContent = Math.round(p) + '%';
+    tr.classList.toggle('onair-col', c === cur);
+    tr.classList.toggle('leader', c === S.leader && S.mode === 'hold');
+    var tag = tr.querySelector('.tag');
+    if(c === cur && !tag){ tag = document.createElement('span'); tag.className = 'tag'; tag.textContent = 'ON AIR'; tr.appendChild(tag); }
+    if(c !== cur && tag) tag.remove();
+    $('ln' + c).textContent = N[c-1];
+    $('lc' + c).textContent = S.counts[c] + (c === cur ? ' stay' : '');
+    $('hb' + c).style.width = (c === S.holdCh ? Math.min(100, S.holdP * 100) : 0) + '%';
+    $('cut' + c).classList.toggle('cur', c === cur);
+    $('cut' + c).title = 'Cut to ' + N[c-1];
+    var nm = $('nm' + c); if(document.activeElement !== nm) nm.value = N[c-1];
+  }
+  $('thr').style.bottom = S.threshold + '%';
+  $('thrLabel').textContent = 'MAJORITY ' + S.threshold + '%';
+
+  var L = S.leader ? 'CH ' + S.leader + ' ' + N[S.leader-1] : '';
+  var main = $('statusMain'), sub = $('statusSub');
+  if(S.connected === 0){ main.innerHTML = pill('open','Waiting') + 'Scan the code to grab a remote'; sub.textContent = 'Nobody is voting yet.'; }
+  else if(S.mode === 'frozen'){ main.innerHTML = pill('frozen','Frozen') + 'The host has paused voting'; sub.textContent = 'Press F to reopen.'; }
+  else if(S.mode === 'cool'){ main.innerHTML = pill('cool','Locked') + 'Next change possible in ' + fmt(S.cdLeft); sub.textContent = S.leader && S.pct > 0 ? esc(L) + ' leads the challengers with ' + Math.round(S.pct) + '%.' : 'Dials still count. Start turning.'; }
+  else if(S.mode === 'hold'){ main.innerHTML = pill('hold','Majority') + esc(L) + ' has ' + Math.round(S.pct) + '%'; sub.textContent = 'Switching in ' + Math.max(0, S.hold * (1 - S.holdP)).toFixed(1) + ' s if it holds.'; }
+  else { main.innerHTML = pill('open','Voting open') + (S.leader && S.pct > 0 ? esc(L) + ' has ' + Math.round(S.pct) + '%' : 'Turn your dial to change the channel'); sub.textContent = 'A channel needs more than ' + S.threshold + '% of the room to take over.'; }
+
+  var k = S.kinds;
+  $('meta').innerHTML = '<span><b>' + S.connected + '</b> voting</span>' +
+    (k.phone ? '<span><b>' + k.phone + '</b> phones</span>' : '') + (k.knob ? '<span><b>' + k.knob + '</b> knobs</span>' : '') + (k.bot ? '<span><b>' + k.bot + '</b> test voters</span>' : '') +
+    '<span><b>' + S.fresh + '</b> turned since last change</span><span>Hold <b>' + S.hold + ' s</b> · Cooldown <b>' + S.cooldown + ' s</b></span>';
+
+  // join card
+  $('join').hidden = !S.showQr;
+  if($('qr').dataset.url !== S.join){ $('qr').innerHTML = S.qr; $('qr').dataset.url = S.join; }
+  $('joinUrl').textContent = S.join;
+  $('joinHow').textContent = /^https:/.test(S.join) ? 'Works on Wi-Fi or mobile data. Or open:' : 'Join the venue Wi-Fi first, then open:';
+  $('deskUrl').textContent = S.join;
+  $('qrBtn').textContent = 'QR on screen: ' + (S.showQr ? 'on' : 'off');
+  $('qrBtn').classList.toggle('on', S.showQr);
+  var sel = $('joinSel');
+  var opts = S.urls.map(function(u, i){ return u.url + '|' + u.name + '|' + i; }).join(',');
+  if(sel.dataset.opts !== opts){
+    sel.innerHTML = S.urls.map(function(u, i){ return '<option value="' + i + '">' + esc(u.name) + ' · ' + esc(u.url) + '</option>'; }).join('');
+    sel.dataset.opts = opts;
+  }
+  if(document.activeElement !== sel) sel.value = String(S.joinIndex);
+  if(document.activeElement !== $('customUrl')) $('customUrl').value = S.customJoin || '';
+
+  // room
+  renderRoom();
+  // log
+  $('log').innerHTML = S.log.length ? S.log.map(function(e){
+    return '<li><span class="t">' + new Date(e.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'}) + '</span><span>CH ' + e.from + ' → <b style="color:' + col(e.to) + '">CH ' + e.to + ' ' + esc(N[e.to-1]) + '</b></span><span class="why">' + (e.why === 'vote' ? 'vote ' + e.pct + '%' : 'host cut') + '</span></li>';
+  }).join('') : '<li class="empty">No channel changes yet.</li>';
+
+  // controls
+  $('freezeBtn').classList.toggle('on', S.frozen);
+  $('restlessBtn').textContent = 'Restless crowd: ' + (S.restless ? 'on' : 'off');
+  $('restlessBtn').classList.toggle('on', S.restless);
+  setIf('rThr', S.threshold); setIf('rHold', S.hold); setIf('rCool', S.cooldown); setIf('rStale', S.stale); setIf('rDrop', S.dropAfter);
+  var sw = $('swingCh');
+  if(sw.options.length !== 7 || sw.dataset.names !== N.join('|')){
+    var v = sw.value || '4';
+    sw.innerHTML = N.map(function(n, i){ return '<option value="' + (i+1) + '">' + (i+1) + ' · ' + esc(n) + '</option>'; }).join('');
+    sw.dataset.names = N.join('|'); sw.value = v;
+  }
+}
+function setIf(id, v){ var el = $(id); if(document.activeElement !== el) el.value = v; }
+
+var roomKey = '';
+function renderRoom(){
+  var order = {phone:0, knob:1, bot:2};
+  var vs = S.voters.slice().sort(function(a, b){ return (order[a.kind] - order[b.kind]) || (parseInt(a.label.slice(1)) - parseInt(b.label.slice(1))); });
+  var present = vs.filter(function(v){ return v.present; }).length;
+  $('roomTitle').textContent = 'The room · ' + present + ' voting';
+  var room = $('room');
+  if(!vs.length){ room.innerHTML = '<p class="empty">Nobody has joined yet. Phones appear here as they scan the code.</p>'; roomKey = ''; return; }
+  var key = vs.map(function(v){ return v.label; }).join(',');
+  if(key !== roomKey){
+    room.innerHTML = vs.map(function(v){ return '<div class="v" id="v-' + v.label + '"><span class="dial"></span><small>' + esc(v.label) + '</small></div>'; }).join('');
+    roomKey = key;
+  }
+  vs.forEach(function(v){
+    var el = document.getElementById('v-' + v.label); if(!el) return;
+    var p = v.pos || 1;
+    el.style.setProperty('--kc', v.pos ? col(v.pos) : 'var(--line)');
+    el.style.setProperty('--rot', (-135 + (p - 1) * 45) + 'deg');
+    el.className = 'v' + (!v.present ? ' gone' : !v.pos ? ' none' : (!v.active && S.stale === 'stay') ? ' stale' : '');
+    el.title = v.label + ': ' + (!v.present ? 'left' : !v.pos ? 'joined, not voted' : 'CH ' + v.pos + (v.active ? '' : ' (from before last change)'));
+  });
+}
+
+/* ---------- inputs ---------- */
+function bindNum(id, key){
+  $(id).addEventListener('change', function(){ var s = {}; s[key] = parseFloat($(id).value); host({action:'settings', settings:s}); });
+}
+bindNum('rThr', 'threshold'); bindNum('rHold', 'hold'); bindNum('rCool', 'cooldown'); bindNum('rDrop', 'dropAfter');
+$('rStale').addEventListener('change', function(){ host({action:'settings', settings:{stale:$('rStale').value}}); });
+var nameTimer = null;
+for(var c=1;c<=7;c++) $('nm' + c).addEventListener('input', function(){
+  clearTimeout(nameTimer);
+  nameTimer = setTimeout(function(){ var n = []; for(var i=1;i<=7;i++) n.push($('nm' + i).value); host({action:'settings', settings:{names:n}}); }, 400);
+});
+$('joinSel').addEventListener('change', function(){ host({action:'join', index: +$('joinSel').value}); });
+$('customUse').addEventListener('click', function(){ host({action:'customJoin', url: $('customUrl').value}); });
+$('customUrl').addEventListener('keydown', function(e){ if(e.key === 'Enter') $('customUse').click(); });
+$('customClear').addEventListener('click', function(){ $('customUrl').value = ''; host({action:'customJoin', url:''}); });
+$('qrBtn').addEventListener('click', function(){ host({action:'showQr', on: !(S && S.showQr)}); });
+$('freezeBtn').addEventListener('click', function(){ host({action:'freeze'}); });
+$('cdBtn').addEventListener('click', function(){ host({action:'endCooldown'}); });
+$('clearLog').addEventListener('click', function(){ host({action:'clearLog'}); });
+document.querySelectorAll('[data-bots]').forEach(function(b){ b.addEventListener('click', function(){ host({action:'addBots', n: +b.dataset.bots}); }); });
+$('clearBots').addEventListener('click', function(){ host({action:'clearBots'}); });
+$('swingBtn').addEventListener('click', function(){ host({action:'swing', ch: +$('swingCh').value}); });
+$('scatterBtn').addEventListener('click', function(){ host({action:'scatter'}); });
+$('restlessBtn').addEventListener('click', function(){ host({action:'restless', on: !(S && S.restless)}); });
+
+/* ---------- projector view & keys ---------- */
+function setProj(on){
+  document.body.classList.toggle('proj', on);
+  try {
+    if(on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(function(){});
+    if(!on && document.fullscreenElement) document.exitFullscreen().catch(function(){});
+  } catch(e){}
+}
+$('projBtn').addEventListener('click', function(){ setProj(true); });
+$('exitProj').addEventListener('click', function(){ setProj(false); });
+document.addEventListener('fullscreenchange', function(){ if(!document.fullscreenElement) document.body.classList.remove('proj'); });
+document.addEventListener('keydown', function(e){
+  var tag = (e.target.tagName || '').toLowerCase();
+  if(tag === 'input' || tag === 'select' || tag === 'textarea' || e.metaKey || e.ctrlKey || e.altKey) return;
+  if(/^[1-7]$/.test(e.key)) host({action:'cut', ch: +e.key});
+  else if(e.key === 'f' || e.key === 'F') host({action:'freeze'});
+  else if(e.key === 'c' || e.key === 'C') host({action:'endCooldown'});
+  else if(e.key === 'q' || e.key === 'Q') host({action:'showQr', on: !(S && S.showQr)});
+  else if(e.key === 'p' || e.key === 'P') setProj(!document.body.classList.contains('proj'));
+  else if(e.key === 'Escape') setProj(false);
+});
+
+/* ---------- static burst + sound ---------- */
+var audioCtx = null;
+function burst(){
+  var id = $('ident');
+  $('identNum').textContent = 'CH ' + S.current; $('identName').textContent = S.names[S.current-1];
+  id.classList.remove('show'); void id.offsetWidth; id.classList.add('show');
+  noise();
+  if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  var cv = $('static'), scr = $('screen');
+  var w = Math.max(1, Math.floor(scr.clientWidth / 3)), h = Math.max(1, Math.floor(scr.clientHeight / 3));
+  cv.width = w; cv.height = h;
+  var ctx = cv.getContext('2d'), img = ctx.createImageData(w, h), start = performance.now(), dur = 650;
+  (function frame(){
+    var e = performance.now() - start;
+    if(e > dur){ cv.style.opacity = 0; return; }
+    var d = img.data;
+    for(var i=0;i<d.length;i+=4){ var v = Math.random()*255|0; d[i]=d[i+1]=d[i+2]=v; d[i+3]=255; }
+    ctx.putImageData(img, 0, 0);
+    cv.style.opacity = String(1 - Math.max(0, (e - dur*.6) / (dur*.4)));
+    requestAnimationFrame(frame);
+  })();
+}
+function noise(){
+  if(!audioCtx) return;
+  try {
+    var len = audioCtx.sampleRate * .6, buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate), d = buf.getChannelData(0);
+    for(var i=0;i<len;i++) d[i] = Math.random()*2 - 1;
+    var src = audioCtx.createBufferSource(); src.buffer = buf;
+    var f = audioCtx.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 3000; f.Q.value = .6;
+    var g = audioCtx.createGain(), t0 = audioCtx.currentTime;
+    g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(.35, t0 + .02); g.gain.linearRampToValueAtTime(0, t0 + .6);
+    src.connect(f).connect(g).connect(audioCtx.destination); src.start();
+  } catch(e){}
+}
+$('soundBtn').addEventListener('click', function(){
+  if(audioCtx){ audioCtx.close(); audioCtx = null; this.textContent = 'Sound off'; this.classList.remove('on'); return; }
+  try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); this.textContent = 'Sound on'; this.classList.add('on'); noise(); }
+  catch(e){ this.textContent = 'No sound available'; }
+});
+
+/* ---------- optional knob hub (USB, Chrome/Edge) ---------- */
+var port = null, reader = null, lastSent = '', hubTimer = null, latest = null;
+function hwMsg(t){ var m = $('hwMsg'); if(t){ m.textContent = t; m.hidden = false; } else m.hidden = true; }
+$('hwBtn').addEventListener('click', function(){
+  if(port){ disconnectHub(); return; }
+  if(!('serial' in navigator)){ hwMsg('This browser cannot talk to the knob hub. Use Chrome or Edge on the show laptop.'); return; }
+  navigator.serial.requestPort().then(function(p){
+    return p.open({baudRate:115200}).then(function(){ port = p; $('hwBtn').textContent = 'Disconnect hub'; $('hwBtn').classList.add('on'); hwMsg(''); readHub(); });
+  }).catch(function(e){ if(e && e.name === 'NotFoundError') return; hwMsg('Could not open the hub: ' + (e && e.message ? e.message : e)); });
+});
+function readHub(){
+  var dec = new TextDecoder(), buf = '';
+  reader = port.readable.getReader();
+  hubTimer = setInterval(function(){
+    if(latest && latest !== lastSent){
+      lastSent = latest;
+      fetch('/api/hub', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({positions: latest.split('').map(Number)})}).catch(function(){});
+    }
+  }, 100);
+  (function pump(){
+    reader.read().then(function(r){
+      if(r.done) return;
+      buf += dec.decode(r.value, {stream:true});
+      var i;
+      while((i = buf.indexOf('\n')) >= 0){
+        var line = buf.slice(0, i).trim(); buf = buf.slice(i + 1);
+        if(/^K[0-7]+$/.test(line)) latest = line.slice(1);
+      }
+      pump();
+    }).catch(function(){ hwMsg('Lost the knob hub. Knobs are frozen at their last reading. Reconnect when ready.'); });
+  })();
+}
+function disconnectHub(){
+  clearInterval(hubTimer);
+  var r = reader, p = port; reader = null; port = null; latest = null; lastSent = '';
+  Promise.resolve().then(function(){ if(r) return r.cancel().then(function(){ r.releaseLock(); }); })
+    .then(function(){ if(p) return p.close(); }).catch(function(){});
+  fetch('/api/host', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({action:'clearHub'})}).catch(function(){});
+  $('hwBtn').textContent = 'Connect knob hub'; $('hwBtn').classList.remove('on');
+}
+})();
+</script>
+</body>
+</html>
