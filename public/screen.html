@@ -48,6 +48,11 @@ kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-b
 .chnum{font-family:var(--display);font-size:clamp(72px,10vw,148px);line-height:.9;color:var(--cur);margin-top:6px}
 .chname{font-family:var(--display);font-size:clamp(22px,3vw,40px);line-height:1.1;overflow-wrap:anywhere}
 .since{color:var(--dim);font-family:var(--mono)}
+.prompt{border-left:4px solid var(--cur);background:rgba(255,255,255,.045);border-radius:0 10px 10px 0;padding:10px 14px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.prompt .plabel{font-size:11px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--cur)}
+.prompt p{margin:0;font-size:clamp(18px,2.1vw,30px);font-weight:600;line-height:1.25;white-space:pre-line;overflow-wrap:anywhere;text-wrap:balance}
+.prompt.fresh{animation:promptIn .9s ease}
+@keyframes promptIn{0%{background:rgba(255,255,255,.18)}100%{background:rgba(255,255,255,.045)}}
 .status{border-top:1px solid var(--line);padding-top:14px;display:flex;flex-direction:column;gap:6px;margin-top:auto}
 .status-main{font-size:clamp(16px,1.8vw,22px);font-weight:600;text-wrap:balance}
 .status-sub{color:var(--dim);font-size:14px}
@@ -82,9 +87,11 @@ kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-b
 .meta b{color:var(--fg);font-weight:600}
 
 #static{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;opacity:0;z-index:3}
-.ident{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:4;pointer-events:none;opacity:0}
+.ident{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;z-index:4;pointer-events:none;opacity:0;background:rgba(10,12,20,.9);padding:24px}
 .ident b{font-family:var(--display);font-weight:400;font-size:clamp(60px,12vw,180px);color:var(--cur);text-shadow:0 0 40px rgba(0,0,0,.8)}
 .ident span{font-family:var(--display);font-size:clamp(18px,3vw,36px);text-shadow:0 0 20px rgba(0,0,0,.9)}
+.ident p{margin:18px 0 0;max-width:min(86%,1000px);text-align:center;font-size:clamp(20px,2.6vw,40px);font-weight:600;line-height:1.25;white-space:pre-line;border-top:3px solid var(--cur);padding-top:16px;text-wrap:balance}
+.ident p:empty{display:none}
 .ident.show{animation:ident 1.6s ease forwards}
 @keyframes ident{0%{opacity:0}25%{opacity:1}75%{opacity:1}100%{opacity:0}}
 
@@ -121,10 +128,16 @@ kbd{font-family:var(--mono);font-size:11px;border:1px solid var(--line);border-b
 .form label small{display:block;color:var(--dim);font-size:12px}
 .form input[type=number]{width:84px;text-align:right;font-family:var(--mono)}
 .form select{max-width:190px}
-.names{display:grid;gap:6px}
-.names label{display:grid;grid-template-columns:34px 1fr;align-items:center;gap:8px}
-.names b{font-family:var(--display);font-weight:400;color:var(--c);font-size:16px}
-.names input{background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:6px 8px;min-width:0}
+.names{display:grid;gap:10px}
+.chrow{display:grid;grid-template-columns:34px minmax(0,1fr);gap:6px 8px;align-items:start;padding:8px;border-radius:9px;border:1px solid transparent}
+.chrow.cur{border-color:var(--c);background:rgba(255,255,255,.03)}
+.chrow b{font-family:var(--display);font-weight:400;color:var(--c);font-size:16px;line-height:32px;text-align:center}
+.chrow .fields{display:flex;flex-direction:column;gap:6px;min-width:0}
+.chrow input,.chrow textarea{font:inherit;color:inherit;background:var(--panel-2);border:1px solid var(--line);border-radius:7px;padding:6px 8px;min-width:0;width:100%}
+.chrow textarea{resize:vertical;min-height:52px;font-size:14px;line-height:1.35}
+.chrow .live-tag{font-size:10px;font-weight:700;letter-spacing:.12em;color:#fff;background:var(--live);border-radius:3px;padding:1px 5px;margin-left:6px;vertical-align:2px}
+.check{display:flex;align-items:center;gap:8px;font-size:14px}
+.saved{font-size:12px;color:var(--dim);min-height:1em}
 .log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:220px;overflow:auto;font-size:13px}
 .log li{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:6px}
 .log .t{font-family:var(--mono);color:var(--dim)}
@@ -140,6 +153,8 @@ body.proj .top,body.proj .desk{display:none}
 body.proj .screen{border-radius:0;border:0;height:100%;padding:4vh 4vw}
 body.proj .board{height:100%}
 body.proj .tracks{height:auto;flex:1;min-height:0}
+body.proj .onair{min-height:0;overflow:hidden}
+body.proj .prompt p{font-size:clamp(20px,2.6vw,40px)}
 body.proj .join .qr{width:min(19vh,200px);height:min(19vh,200px)}
 body.proj .join b{font-size:clamp(18px,2.2vw,30px)}
 body.proj .join code{font-size:clamp(13px,1.3vw,18px)}
@@ -179,6 +194,7 @@ body.proj .exitproj{display:inline-flex}
     <div class="chnum" id="chNum">CH –</div>
     <div class="chname" id="chName">Waiting for the server…</div>
     <div class="since" id="since"></div>
+    <div class="prompt" id="prompt" hidden><span class="plabel">Audience prompt</span><p id="promptText"></p></div>
     <div class="status">
       <div class="status-main" id="statusMain"></div>
       <div class="status-sub" id="statusSub"></div>
@@ -194,7 +210,7 @@ body.proj .exitproj{display:inline-flex}
     <div class="meta" id="meta"></div>
   </div>
   <canvas id="static" aria-hidden="true"></canvas>
-  <div class="ident" id="ident" aria-hidden="true"><b id="identNum"></b><span id="identName"></span></div>
+  <div class="ident" id="ident" aria-hidden="true"><b id="identNum"></b><span id="identName"></span><p id="identPrompt"></p></div>
 </section>
 
 <section class="desk">
@@ -275,8 +291,11 @@ body.proj .exitproj{display:inline-flex}
       </div>
     </div>
     <div class="panel">
-      <h2>Channel line-up</h2>
+      <h2>Channels &amp; audience prompts</h2>
+      <p class="hint">Each prompt appears on the big screen while its channel is on air, and flashes up with the channel change. Leave a prompt empty to show nothing.</p>
+      <label class="check"><input type="checkbox" id="promptPhones"> Also show the prompt on audience phones</label>
       <div class="names" id="names"></div>
+      <div class="saved" id="savedMsg" aria-live="polite"></div>
     </div>
   </div>
 </section>
@@ -313,8 +332,11 @@ function host(body){
     b.type = 'button'; b.className = 'cut'; b.id = 'cut' + c; b.style.setProperty('--c', col(c)); b.textContent = c;
     b.addEventListener('click', (function(ch){ return function(){ host({action:'cut', ch:ch}); }; })(c));
     cuts.appendChild(b);
-    var l = document.createElement('label'); l.style.setProperty('--c', col(c));
-    l.innerHTML = '<b>' + c + '</b><input type="text" id="nm' + c + '" maxlength="28" aria-label="Name of channel ' + c + '">';
+    var l = document.createElement('div'); l.className = 'chrow'; l.id = 'row' + c; l.style.setProperty('--c', col(c));
+    l.innerHTML = '<b>' + c + '</b><div class="fields">' +
+      '<input type="text" id="nm' + c + '" maxlength="28" aria-label="Name of channel ' + c + '">' +
+      '<textarea id="pr' + c + '" maxlength="240" rows="2" placeholder="Audience prompt (optional)" aria-label="Audience prompt for channel ' + c + '"></textarea>' +
+      '</div>';
     names.appendChild(l);
   }
 })();
@@ -325,6 +347,7 @@ function connect(){
   es.onmessage = function(ev){
     try { S = JSON.parse(ev.data); } catch(e){ return; }
     $('conn').hidden = true;
+    keepBackup();
     if(lastEpoch !== null && S.epoch !== lastEpoch) burst();
     lastEpoch = S.epoch;
     render();
@@ -332,6 +355,25 @@ function connect(){
   es.onerror = function(){ $('conn').hidden = false; };
 }
 connect();
+
+/* The browser keeps a copy of the channel names, prompts and rules. If the server restarts and
+   forgets them (free online hosting does this), the copy is sent back automatically. */
+var BACKUP = 'channel-changer-settings', restored = false, lastBackup = '';
+function keepBackup(){
+  if(!S || !S.settings) return;
+  if(S.settingsEdited){
+    var j = JSON.stringify(S.settings);
+    if(j !== lastBackup){ lastBackup = j; try { localStorage.setItem(BACKUP, j); } catch(e){} }
+  } else if(!restored){
+    restored = true;
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem(BACKUP) || 'null'); } catch(e){}
+    if(saved && typeof saved === 'object'){
+      host({action:'settings', settings:saved});
+      $('savedMsg').textContent = 'The server had restarted, so your channel names, prompts and rules were restored from this browser.';
+    }
+  }
+}
 // Some free hosts go to sleep after 15 minutes without requests; this keeps the server awake while the screen is open.
 setInterval(function(){ fetch('/api/ping', {cache:'no-store'}).catch(function(){}); }, 4 * 60 * 1000);
 
@@ -343,6 +385,13 @@ function render(){
   $('chNum').textContent = 'CH ' + cur;
   $('chName').textContent = N[cur-1];
   $('since').textContent = 'On air for ' + fmt(S.onAirFor);
+  var P = S.prompts || [], pr = P[cur-1] || '';
+  var box = $('prompt');
+  if(box.dataset.text !== pr || box.dataset.ch !== String(cur)){
+    box.hidden = !pr; $('promptText').textContent = pr;
+    if(box.dataset.ch && box.dataset.ch !== String(cur)){ box.classList.remove('fresh'); void box.offsetWidth; box.classList.add('fresh'); }
+    box.dataset.text = pr; box.dataset.ch = String(cur);
+  }
 
   for(c=1;c<=7;c++){
     var tr = $('tr' + c), p = S.connected ? S.counts[c] / S.connected * 100 : 0;
@@ -358,7 +407,14 @@ function render(){
     $('hb' + c).style.width = (c === S.holdCh ? Math.min(100, S.holdP * 100) : 0) + '%';
     $('cut' + c).classList.toggle('cur', c === cur);
     $('cut' + c).title = 'Cut to ' + N[c-1];
-    var nm = $('nm' + c); if(document.activeElement !== nm) nm.value = N[c-1];
+    var nm = $('nm' + c); if(document.activeElement !== nm && !editing) nm.value = N[c-1];
+    var pt = $('pr' + c); if(document.activeElement !== pt && !editing) pt.value = P[c-1] || '';
+    var row = $('row' + c);
+    if(row.classList.contains('cur') !== (c === cur)){
+      row.classList.toggle('cur', c === cur);
+      var oldTag = row.querySelector('.live-tag'); if(oldTag) oldTag.remove();
+      if(c === cur){ var tg = document.createElement('span'); tg.className = 'live-tag'; tg.textContent = 'ON AIR'; row.querySelector('.fields').prepend(tg); tg.style.alignSelf = 'flex-start'; tg.style.marginLeft = '0'; }
+    }
   }
   $('thr').style.bottom = S.threshold + '%';
   $('thrLabel').textContent = 'MAJORITY ' + S.threshold + '%';
@@ -402,6 +458,7 @@ function render(){
 
   // controls
   $('freezeBtn').classList.toggle('on', S.frozen);
+  $('promptPhones').checked = !!S.promptsOnPhones;
   $('restlessBtn').textContent = 'Restless crowd: ' + (S.restless ? 'on' : 'off');
   $('restlessBtn').classList.toggle('on', S.restless);
   setIf('rThr', S.threshold); setIf('rHold', S.hold); setIf('rCool', S.cooldown); setIf('rStale', S.stale); setIf('rDrop', S.dropAfter);
@@ -443,11 +500,22 @@ function bindNum(id, key){
 }
 bindNum('rThr', 'threshold'); bindNum('rHold', 'hold'); bindNum('rCool', 'cooldown'); bindNum('rDrop', 'dropAfter');
 $('rStale').addEventListener('change', function(){ host({action:'settings', settings:{stale:$('rStale').value}}); });
-var nameTimer = null;
-for(var c=1;c<=7;c++) $('nm' + c).addEventListener('input', function(){
+var nameTimer = null, editing = false;
+function saveLineup(){
   clearTimeout(nameTimer);
-  nameTimer = setTimeout(function(){ var n = []; for(var i=1;i<=7;i++) n.push($('nm' + i).value); host({action:'settings', settings:{names:n}}); }, 400);
-});
+  editing = true;
+  $('savedMsg').textContent = 'Saving…';
+  nameTimer = setTimeout(function(){
+    var n = [], p = [];
+    for(var i=1;i<=7;i++){ n.push($('nm' + i).value); p.push($('pr' + i).value); }
+    host({action:'settings', settings:{names:n, prompts:p}}).then(function(r){
+      editing = false;
+      $('savedMsg').textContent = r && r.ok ? 'Saved.' : 'Could not save. Check the server is running.';
+    });
+  }, 500);
+}
+for(var c=1;c<=7;c++){ $('nm' + c).addEventListener('input', saveLineup); $('pr' + c).addEventListener('input', saveLineup); }
+$('promptPhones').addEventListener('change', function(){ host({action:'settings', settings:{promptsOnPhones: $('promptPhones').checked}}); });
 $('joinSel').addEventListener('change', function(){ host({action:'join', index: +$('joinSel').value}); });
 $('customUse').addEventListener('click', function(){ host({action:'customJoin', url: $('customUrl').value}); });
 $('customUrl').addEventListener('keydown', function(e){ if(e.key === 'Enter') $('customUse').click(); });
@@ -489,6 +557,8 @@ var audioCtx = null;
 function burst(){
   var id = $('ident');
   $('identNum').textContent = 'CH ' + S.current; $('identName').textContent = S.names[S.current-1];
+  $('identPrompt').textContent = (S.prompts && S.prompts[S.current-1]) || '';
+  id.style.animationDuration = $('identPrompt').textContent ? '3.2s' : '1.6s';
   id.classList.remove('show'); void id.offsetWidth; id.classList.add('show');
   noise();
   if(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) return;

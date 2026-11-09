@@ -105,6 +105,15 @@ You need free accounts on **GitHub** (github.com, to hold the files) and **Rende
 
 **Updating:** change a file on GitHub (or upload a new version) and Render redeploys automatically.
 
+## Audience prompts
+
+Each channel can have an audience prompt, such as "Shout out a dish nobody should ever cook". While that channel is on air, its prompt shows under the channel name on the big screen. It also flashes up with the channel change, and appears on the audience's phones.
+
+- Type prompts in **Channels & audience prompts** on the screen page. They save as you type, and you can edit them mid-show.
+- Leave a prompt empty to show nothing for that channel.
+- Untick **Also show the prompt on audience phones** to keep prompts on the big screen only.
+- Online hosting can forget settings when the server restarts. The screen page keeps a copy in that browser and sends it back automatically after a restart. To set prompts permanently, add a `CHANNEL_PROMPTS` environment variable with the seven prompts separated by `|`, e.g. `Shout out a headline|Name a dish|...`
+
 ## How the voting works
 
 - Each phone has one dial. Its position is that phone's vote, and it stays counted until the person turns it again or leaves.

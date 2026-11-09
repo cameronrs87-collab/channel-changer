@@ -8,7 +8,8 @@
 
   Hosted online (e.g. Render): set the environment variable HOST_PASSWORD.
   Then the big screen is at https://<your-address>/screen and asks for that password.
-  Optional: PUBLIC_URL (address for the QR code), CHANNEL_NAMES (seven names, comma separated).
+  Optional: PUBLIC_URL (address for the QR code), CHANNEL_NAMES (seven names, comma separated),
+  CHANNEL_PROMPTS (seven audience prompts, separated by | ).
 
   No packages to install. Needs Node.js 18 or newer.
 */
@@ -45,25 +46,37 @@ const DEFAULTS = {
   dropAfter: 120,     // seconds before a silent phone stops counting
   startChannel: 1,
   names: ['Rolling News', 'Cooking Show', 'Soap Opera', 'Wildlife Doc', 'Home Shopping', "Kids' TV", 'Live Sport'],
+  prompts: ['', '', '', '', '', '', ''],   // audience prompt shown while each channel is on air
+  promptsOnPhones: true,
 };
 // Online hosts forget settings.json on every restart, so names can also come from an environment variable.
 if (process.env.CHANNEL_NAMES) {
   const n = String(process.env.CHANNEL_NAMES).split(',').map(x => x.trim());
   DEFAULTS.names = DEFAULTS.names.map((d, i) => n[i] || d);
 }
+if (process.env.CHANNEL_PROMPTS) {
+  const n = String(process.env.CHANNEL_PROMPTS).split('|');
+  DEFAULTS.prompts = DEFAULTS.prompts.map((d, i) => cleanPrompt(n[i]));
+}
 
+let settingsEdited = false;   // false until settings are loaded from file or changed by the host
 function loadSettings() {
   try {
     const j = JSON.parse(fs.readFileSync(SETTINGS_FILE, 'utf8'));
+    settingsEdited = true;
     return sanitizeSettings(Object.assign({}, DEFAULTS, j));
   } catch (e) {
-    return Object.assign({}, DEFAULTS, {names: DEFAULTS.names.slice()});
+    return sanitizeSettings(DEFAULTS);
   }
 }
 function saveSettings() {
   try { fs.writeFileSync(SETTINGS_FILE, JSON.stringify(S, null, 2)); } catch (e) { console.warn('Could not save settings:', e.message); }
 }
 const clamp = (v, lo, hi, d) => { v = Number(v); return Number.isFinite(v) ? Math.min(hi, Math.max(lo, v)) : d; };
+function cleanPrompt(t) {
+  return String(t == null ? '' : t).replace(/\r\n?/g, '\n').replace(/[\u0000-\u0009\u000b-\u001f\u007f]/g, '')
+    .replace(/\n{3,}/g, '\n\n').trim().slice(0, 240);
+}
 const cleanText = (t, d) => { t = String(t == null ? '' : t).replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 28); return t || d; };
 function sanitizeSettings(s) {
   return {
@@ -74,6 +87,8 @@ function sanitizeSettings(s) {
     dropAfter: clamp(s.dropAfter, 15, 900, DEFAULTS.dropAfter),
     startChannel: clamp(s.startChannel, 1, 7, 1) | 0,
     names: DEFAULTS.names.map((d, i) => cleanText(Array.isArray(s.names) ? s.names[i] : '', d)),
+    prompts: DEFAULTS.prompts.map((d, i) => Array.isArray(s.prompts) ? cleanPrompt(s.prompts[i]) : d),
+    promptsOnPhones: s.promptsOnPhones !== false,
   };
 }
 let S = loadSettings();
@@ -263,6 +278,7 @@ function publicState() {
   const t = st.tally || tally();
   return {
     current: st.current, epoch: st.epoch, names: S.names,
+    prompt: S.promptsOnPhones ? S.prompts[st.current - 1] : '',
     threshold: S.threshold, hold: S.hold, cooldown: S.cooldown, stale: S.stale,
     counts: t.counts, connected: t.connected, fresh: t.fresh, kinds: t.kinds,
     mode: st.mode, leader: st.leader, pct: Math.round(st.pct * 10) / 10,
@@ -284,6 +300,8 @@ function screenState() {
     voters, log: st.log.slice(0, 20), urls, joinIndex: st.joinIndex, join, qr: qrFor(join),
     showQr: st.showQr, customJoin: st.customJoin, restless: !!st.restless, swinging: !!st.swing,
     dropAfter: S.dropAfter, startChannel: S.startChannel,
+    prompts: S.prompts, promptsOnPhones: S.promptsOnPhones,
+    settings: S, settingsEdited,
   });
 }
 
@@ -438,7 +456,7 @@ function hostAction(a) {
     case 'freeze': st.frozen = typeof a.on === 'boolean' ? a.on : !st.frozen; break;
     case 'endCooldown': st.lastSwitch = now() - S.cooldown * 1000; break;
     case 'restartCooldown': st.lastSwitch = now(); break;
-    case 'settings': S = sanitizeSettings(Object.assign({}, S, a.settings || {})); saveSettings(); break;
+    case 'settings': S = sanitizeSettings(Object.assign({}, S, a.settings || {})); settingsEdited = true; saveSettings(); break;
     case 'join': st.joinIndex = clamp(a.index, 0, 20, 0) | 0; break;
     case 'customJoin': {
       let u = String(a.url || '').trim();
